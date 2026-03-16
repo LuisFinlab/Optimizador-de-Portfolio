@@ -126,8 +126,14 @@ with st.spinner("📡 Descargando datos históricos..."):
         precios = raw[["Close"]]
         precios.columns = tickers
 
-    # Filtrar activos válidos
+    # ✅ FIX 1: ZeroDivisionError — verificar que hay datos antes de filtrar
     total_dias = len(precios)
+    if total_dias == 0:
+        st.error("❌ No se pudieron obtener datos históricos. "
+                 "Verificá que los tickers sean válidos (ej: AAPL, MSFT) "
+                 "o intentá con otro período.")
+        st.stop()
+
     validos = [t for t in precios.columns
                if precios[t].dropna().__len__() / total_dias >= 0.8
                and precios[t].dropna().__len__() > 30]
@@ -317,7 +323,8 @@ with tab1:
     st.pyplot(fig); plt.close()
 
     st.subheader("Resumen de métricas")
-    st.dataframe(tabla_resumen, use_container_width=True, hide_index=True)
+    # ✅ FIX 2: use_container_width reemplazado por width='stretch'
+    st.dataframe(tabla_resumen, width='stretch', hide_index=True)
 
 # ══════════════════════════════════════════════════════
 # TAB 2 — PESOS
@@ -487,7 +494,8 @@ with tab5:
         "VaR 1 día (%)":  [round(v["v1d"],2)  for v in res_var.values()],
         "VaR 10 días (%)": [round(v["v10d"],2) for v in res_var.values()],
     })
-    st.dataframe(df_var, use_container_width=True, hide_index=True)
+    # ✅ FIX 2: use_container_width reemplazado por width='stretch'
+    st.dataframe(df_var, width='stretch', hide_index=True)
 
     # Histogramas
     n_p   = len(res_var)
@@ -545,7 +553,7 @@ with tab6:
         filas_st.append(fila)
     df_st = pd.DataFrame(filas_st)
 
-    # Estilo con colores
+    # ✅ FIX 3: applymap deprecado → reemplazado por map (pandas >= 2.1)
     def colorear(val):
         try:
             v = float(val.replace("%",""))
@@ -557,8 +565,8 @@ with tab6:
 
     cols_num = [c for c in df_st.columns if c != "Portfolio"]
     st.dataframe(
-        df_st.style.applymap(colorear, subset=cols_num),
-        use_container_width=True, hide_index=True
+        df_st.style.map(colorear, subset=cols_num),
+        width='stretch', hide_index=True
     )
     st.caption("Caída estimada = beta × caída SPY. Más rojo = mayor pérdida estimada.")
 
@@ -574,8 +582,8 @@ with tab6:
     df_cr = pd.DataFrame(filas_cr)
     cols_cr = [c for c in df_cr.columns if c != "Portfolio"]
     st.dataframe(
-        df_cr.style.applymap(colorear, subset=cols_cr),
-        use_container_width=True, hide_index=True
+        df_cr.style.map(colorear, subset=cols_cr),
+        width='stretch', hide_index=True
     )
     st.caption("Basado en la caída del SPY en el peor día de cada crisis. Solo efecto beta.")
 
