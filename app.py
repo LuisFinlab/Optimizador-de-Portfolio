@@ -17,6 +17,7 @@ import warnings
 import datetime
 import base64
 import time
+import os
 from io import BytesIO
 
 warnings.filterwarnings("ignore")
@@ -36,9 +37,13 @@ st.caption("Análisis cuantitativo de riesgo y retorno con frontera eficiente")
 def agregar_watermark(ax, logo_path="logo_watermark.png", alpha=0.12):
     """Agrega el logo LHA como watermark centrado en el gráfico."""
     try:
-        from PIL import Image as PILImage
         import matplotlib.image as mpimg
-        logo = mpimg.imread(logo_path)
+        # Buscar el archivo tanto en el directorio actual como en el del script
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        ruta = os.path.join(base_dir, logo_path)
+        if not os.path.exists(ruta):
+            ruta = logo_path
+        logo = mpimg.imread(ruta)
         ax_pos = ax.get_position()
         fig = ax.get_figure()
         fig_w, fig_h = fig.get_size_inches()
@@ -59,7 +64,11 @@ def agregar_watermark(ax, logo_path="logo_watermark.png", alpha=0.12):
 def logo_a_base64(path):
     """Convierte imagen a base64 para mostrar en Streamlit."""
     try:
-        with open(path, "rb") as f:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        ruta = os.path.join(base_dir, path)
+        if not os.path.exists(ruta):
+            ruta = path
+        with open(ruta, "rb") as f:
             return base64.b64encode(f.read()).decode()
     except Exception:
         return None
