@@ -31,6 +31,37 @@ st.set_page_config(
 st.title("📈 Optimizador de Portafolios — Markowitz")
 st.caption("Análisis cuantitativo de riesgo y retorno con frontera eficiente")
 
+# ── FUNCIÓN WATERMARK ────────────────────────────────────────
+def agregar_watermark(ax, logo_path="logo_watermark.png", alpha=0.12):
+    """Agrega el logo LHA como watermark centrado en el gráfico."""
+    try:
+        from PIL import Image as PILImage
+        import matplotlib.image as mpimg
+        logo = mpimg.imread(logo_path)
+        ax_pos = ax.get_position()
+        fig = ax.get_figure()
+        fig_w, fig_h = fig.get_size_inches()
+        # Posición centrada en el axes
+        logo_ax = fig.add_axes(
+            [ax_pos.x0 + ax_pos.width*0.25,
+             ax_pos.y0 + ax_pos.height*0.25,
+             ax_pos.width*0.5,
+             ax_pos.height*0.5],
+            zorder=0
+        )
+        logo_ax.imshow(logo, aspect="equal", alpha=alpha)
+        logo_ax.axis("off")
+        logo_ax.set_navigate(False)
+    except Exception:
+        pass   # Si falla el watermark, el gráfico igual se muestra
+
+def logo_a_base64(path):
+    """Convierte imagen a base64 para mostrar en Streamlit."""
+    try:
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    except Exception:
+        return None
 # ── SIDEBAR: INPUTS DEL USUARIO ──────────────────────────────
 with st.sidebar:
     # Logo LHA en el sidebar
@@ -80,37 +111,6 @@ with st.sidebar:
     st.caption("💡 El código corre en el servidor. Los usuarios no tienen acceso al código fuente.")
 
 # ── CONSTANTES ───────────────────────────────────────────────
-# ── FUNCIÓN WATERMARK ────────────────────────────────────────
-def agregar_watermark(ax, logo_path="logo_watermark.png", alpha=0.12):
-    """Agrega el logo LHA como watermark centrado en el gráfico."""
-    try:
-        from PIL import Image as PILImage
-        import matplotlib.image as mpimg
-        logo = mpimg.imread(logo_path)
-        ax_pos = ax.get_position()
-        fig = ax.get_figure()
-        fig_w, fig_h = fig.get_size_inches()
-        # Posición centrada en el axes
-        logo_ax = fig.add_axes(
-            [ax_pos.x0 + ax_pos.width*0.25,
-             ax_pos.y0 + ax_pos.height*0.25,
-             ax_pos.width*0.5,
-             ax_pos.height*0.5],
-            zorder=0
-        )
-        logo_ax.imshow(logo, aspect="equal", alpha=alpha)
-        logo_ax.axis("off")
-        logo_ax.set_navigate(False)
-    except Exception:
-        pass   # Si falla el watermark, el gráfico igual se muestra
-
-def logo_a_base64(path):
-    """Convierte imagen a base64 para mostrar en Streamlit."""
-    try:
-        with open(path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    except Exception:
-        return None
 DIAS_TRADING = 252
 UMBRAL_CORR  = 0.80
 N_SIMS       = 6000
