@@ -85,7 +85,7 @@ with st.sidebar:
         st.markdown(
             f'<div style="text-align:center; padding: 8px 0 4px 0;">'
             f'<img src="data:image/png;base64,{logo_b64}" '
-            f'style="width:160px; opacity:0.92;"></div>',
+            f'style="width:320px; opacity:0.95;"></div>',
             unsafe_allow_html=True
         )
         st.divider()
