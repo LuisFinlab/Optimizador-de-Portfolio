@@ -16,6 +16,7 @@ from scipy import stats
 import warnings
 import datetime
 import base64
+import time
 from io import BytesIO
 
 warnings.filterwarnings("ignore")
@@ -208,17 +209,32 @@ with st.spinner("📡 Descargando datos históricos..."):
 
     # Tickers internacionales (USD directo)
     if tickers_usd:
-        raw_usd = yf.download(tickers_usd, start=fecha_inicio, end=fecha_fin,
-                               auto_adjust=True, progress=False)
-        if isinstance(raw_usd.columns, pd.MultiIndex):
-            precios_usd = raw_usd["Close"]
-        else:
-            precios_usd = raw_usd[["Close"]]
-            precios_usd.columns = tickers_usd
+        for intento in range(3):
+            try:
+                raw_usd = yf.download(tickers_usd, start=fecha_inicio, end=fecha_fin,
+                                       auto_adjust=True, progress=False)
+                break
+            except Exception:
+                if intento < 2:
+                    time.sleep(3)
+                else:
+                    raw_usd = pd.DataFrame()
 
-        for t in tickers_usd:
-            if t in precios_usd.columns:
-                dict_precios[t] = precios_usd[t]
+        if not raw_usd.empty:
+            if isinstance(raw_usd.columns, pd.MultiIndex):
+                precios_usd = raw_usd["Close"]
+            else:
+                precios_usd = raw_usd[["Close"]]
+                precios_usd.columns = tickers_usd
+            for t in tickers_usd:
+                if t in precios_usd.columns:
+                    s = precios_usd[t].dropna()
+                    if len(s) > 30:
+                        dict_precios[t] = precios_usd[t]
+                    else:
+                        st.warning(f"⚠️ {t}: datos insuficientes, se descarta.")
+        else:
+            st.warning("⚠️ No se pudieron descargar tickers internacionales. Reintentá en un momento.")
 
     # Tickers argentinos (.BA → ARS → USD via CCL)
     for t_ba in tickers_ba:
@@ -252,6 +268,10 @@ with st.spinner("📡 Descargando datos históricos..."):
     precios_df = pd.DataFrame(dict_precios).ffill().dropna()
 
     # Filtrar activos con cobertura mínima del 80%
+    if precios_df.empty or len(precios_df) == 0:
+        st.error("❌ No se obtuvieron datos. Yahoo Finance puede estar limitando las consultas. "
+                 "Esperá 1 minuto y presioná Analizar nuevamente.")
+        st.stop()
     total_dias = len(precios_df)
     validos = [t for t in precios_df.columns
                if precios_df[t].dropna().__len__() / total_dias >= 0.8
