@@ -94,7 +94,7 @@ with st.sidebar:
     tickers_raw = st.text_input(
         "Tickers (separados por coma)",
         value="KO,MELI,GGAL,BMA,HD,META",
-        help="Máximo 20 activos recomendado. Ej: AAPL,MSFT,GOOGL"
+        help="Máximo 20 activos recomendado. Ej: AAPL,MSFT,GOOGL — Para activos del mercado local argentino agregá el sufijo .BA · Ej: GGAL.BA,YPFD.BA,PAMP.BA"
     )
 
     anios = st.slider(
