@@ -192,16 +192,21 @@ tickers_ba   = [t for t in tickers_raw_lista if t.endswith(".BA")]
 tickers_usd  = [t for t in tickers_raw_lista if not t.endswith(".BA")]
 ccl_serie    = None
 
+# Ratio ADR: cuántas acciones locales equivale 1 ADR en NYSE
+# GGAL: 1 ADR = 10 acciones locales
+# BMA:  1 ADR = 10 acciones locales
+# PAM:  1 ADR = 25 acciones locales
+# YPF:  1 ADR = 1  acción local
 PARES_CCL = [
-    ("GGAL.BA", "GGAL"),
-    ("YPF.BA",  "YPF"),
-    ("PAMP.BA", "PAM"),
-    ("BMA.BA",  "BMA"),
+    ("GGAL.BA", "GGAL", 10),
+    ("YPF.BA",  "YPF",   1),
+    ("PAMP.BA", "PAM",  25),
+    ("BMA.BA",  "BMA",  10),
 ]
 
 if tickers_ba:
     with st.spinner("💱 Calculando tipo de cambio CCL..."):
-        for ticker_ars, ticker_usd_ccl in PARES_CCL:
+        for ticker_ars, ticker_usd_ccl, ratio_adr in PARES_CCL:
             try:
                 raw_ars = yf.download(ticker_ars, start=fecha_inicio, end=fecha_fin,
                                       auto_adjust=True, progress=False)
@@ -219,10 +224,11 @@ if tickers_ba:
                          if isinstance(raw_usd_c.columns, pd.MultiIndex)
                          else raw_usd_c["Close"]).squeeze()
 
-                # CCL = precio ARS ÷ precio USD del mismo activo
+                # CCL = (precio ARS × ratio_ADR) ÷ precio USD
+                # El ratio_ADR corrige que 1 ADR representa N acciones locales
                 ccl_df    = pd.concat([s_ars, s_usd], axis=1, join="inner")
                 ccl_df.columns = ["ars", "usd"]
-                ccl_serie = (ccl_df["ars"] / ccl_df["usd"]).ffill()
+                ccl_serie = (ccl_df["ars"] * ratio_adr / ccl_df["usd"]).ffill()
 
                 if len(ccl_serie) < 30:
                     ccl_serie = None
