@@ -104,7 +104,7 @@ with st.sidebar:
 
     rf = st.number_input(
         "Tasa libre de riesgo anual (%)",
-        min_value=0.0, max_value=20.0, value=2.0, step=0.5,
+        min_value=0.0, max_value=20.0, value=2.0, step=0.25,
         help="Usá la tasa del bono del Tesoro USA a 10 años"
     ) / 100
 
