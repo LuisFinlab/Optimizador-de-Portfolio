@@ -85,7 +85,7 @@ with st.sidebar:
         st.markdown(
             f'<div style="text-align:center; padding: 8px 0 4px 0;">'
             f'<img src="data:image/png;base64,{logo_b64}" '
-            f'style="width:320px; opacity:0.95;"></div>',
+            f'style="width:100%; max-width:100%; opacity:0.95; padding: 0 8px;"></div>',
             unsafe_allow_html=True
         )
         st.divider()
@@ -183,37 +183,64 @@ fecha_fin    = datetime.date.today()
 fecha_inicio = fecha_fin - datetime.timedelta(days=int(anios * 365.25))
 
 # ── PASO A: Calcular tipo de cambio CCL si hay tickers .BA ───
+#
+#  El CCL se calcula como: precio_ARS_local ÷ precio_USD_NYSE
+#  Se prueban múltiples pares conocidos hasta encontrar uno disponible.
+#  Pares candidatos: GGAL.BA/GGAL, YPF.BA/YPF, PAMP.BA/PAM, BMA.BA/BMA
+
 tickers_ba   = [t for t in tickers_raw_lista if t.endswith(".BA")]
 tickers_usd  = [t for t in tickers_raw_lista if not t.endswith(".BA")]
 ccl_serie    = None
 
+PARES_CCL = [
+    ("GGAL.BA", "GGAL"),
+    ("YPF.BA",  "YPF"),
+    ("PAMP.BA", "PAM"),
+    ("BMA.BA",  "BMA"),
+]
+
 if tickers_ba:
-    with st.spinner("💱 Calculando tipo de cambio CCL (GD30C÷GD30)..."):
-        try:
-            raw_gd30c = yf.download("GD30C.BA", start=fecha_inicio, end=fecha_fin,
-                                     auto_adjust=True, progress=False)
-            raw_gd30  = yf.download("GD30",     start=fecha_inicio, end=fecha_fin,
-                                     auto_adjust=True, progress=False)
+    with st.spinner("💱 Calculando tipo de cambio CCL..."):
+        for ticker_ars, ticker_usd_ccl in PARES_CCL:
+            try:
+                raw_ars = yf.download(ticker_ars, start=fecha_inicio, end=fecha_fin,
+                                      auto_adjust=True, progress=False)
+                raw_usd_c = yf.download(ticker_usd_ccl, start=fecha_inicio, end=fecha_fin,
+                                        auto_adjust=True, progress=False)
 
-            # Extraer Series limpias
-            gd30c = (raw_gd30c["Close"].iloc[:,0]
-                     if isinstance(raw_gd30c.columns, pd.MultiIndex)
-                     else raw_gd30c["Close"]).squeeze()
-            gd30  = (raw_gd30["Close"].iloc[:,0]
-                     if isinstance(raw_gd30.columns, pd.MultiIndex)
-                     else raw_gd30["Close"]).squeeze()
+                if raw_ars.empty or raw_usd_c.empty:
+                    continue
 
-            # CCL = precio ARS ÷ precio USD del mismo bono
-            ccl_df   = pd.concat([gd30c, gd30], axis=1, join="inner")
-            ccl_df.columns = ["gd30c","gd30"]
-            ccl_serie = (ccl_df["gd30c"] / ccl_df["gd30"]).ffill()
+                # Extraer Series limpias
+                s_ars = (raw_ars["Close"].iloc[:,0]
+                         if isinstance(raw_ars.columns, pd.MultiIndex)
+                         else raw_ars["Close"]).squeeze()
+                s_usd = (raw_usd_c["Close"].iloc[:,0]
+                         if isinstance(raw_usd_c.columns, pd.MultiIndex)
+                         else raw_usd_c["Close"]).squeeze()
 
-            ccl_actual = ccl_serie.iloc[-1]
-            st.info(f"💱 CCL calculado: ${ccl_actual:,.1f} ARS/USD "
-                    f"(último dato: {ccl_serie.index[-1].date()})")
-        except Exception as e:
-            st.error(f"❌ No se pudo calcular el CCL: {e}. "
-                     "Verificá que GD30C.BA y GD30 estén disponibles en yfinance.")
+                # CCL = precio ARS ÷ precio USD del mismo activo
+                ccl_df    = pd.concat([s_ars, s_usd], axis=1, join="inner")
+                ccl_df.columns = ["ars", "usd"]
+                ccl_serie = (ccl_df["ars"] / ccl_df["usd"]).ffill()
+
+                if len(ccl_serie) < 30:
+                    ccl_serie = None
+                    continue
+
+                ccl_actual = ccl_serie.iloc[-1]
+                st.info(f"💱 CCL calculado usando {ticker_ars}/{ticker_usd_ccl}: "
+                        f"${ccl_actual:,.1f} ARS/USD "
+                        f"(último dato: {ccl_serie.index[-1].date()})")
+                break   # par válido encontrado
+
+            except Exception:
+                continue
+
+        if ccl_serie is None:
+            st.error("❌ No se pudo calcular el CCL. Ningún par de referencia "
+                     "(GGAL, YPF, PAMP, BMA) está disponible en yfinance. "
+                     "Intentá de nuevo en unos minutos o usá solo tickers NYSE/NASDAQ.")
             st.stop()
 
 # ── PASO B: Descargar precios de todos los tickers ────────────
@@ -222,33 +249,33 @@ with st.spinner("📡 Descargando datos históricos..."):
     dict_precios = {}   # ticker → Serie de precios en USD
 
     # Tickers internacionales (USD directo)
+    # Descarga de a uno para evitar rate limit de yfinance
     if tickers_usd:
-        for intento in range(3):
-            try:
-                raw_usd = yf.download(tickers_usd, start=fecha_inicio, end=fecha_fin,
-                                       auto_adjust=True, progress=False)
-                break
-            except Exception:
-                if intento < 2:
-                    time.sleep(3)
-                else:
-                    raw_usd = pd.DataFrame()
-
-        if not raw_usd.empty:
-            if isinstance(raw_usd.columns, pd.MultiIndex):
-                precios_usd = raw_usd["Close"]
-            else:
-                precios_usd = raw_usd[["Close"]]
-                precios_usd.columns = tickers_usd
-            for t in tickers_usd:
-                if t in precios_usd.columns:
-                    s = precios_usd[t].dropna()
-                    if len(s) > 30:
-                        dict_precios[t] = precios_usd[t]
+        raw_usd_dict = {}
+        espera = [0, 5, 10]   # segundos entre reintentos
+        for t in tickers_usd:
+            for intento in range(3):
+                try:
+                    if intento > 0:
+                        time.sleep(espera[intento])
+                    raw_t = yf.download(t, start=fecha_inicio, end=fecha_fin,
+                                        auto_adjust=True, progress=False)
+                    if not raw_t.empty:
+                        if isinstance(raw_t.columns, pd.MultiIndex):
+                            serie = raw_t["Close"].iloc[:, 0].squeeze()
+                        else:
+                            serie = raw_t["Close"].squeeze()
+                        if len(serie.dropna()) > 30:
+                            dict_precios[t] = serie
+                        else:
+                            st.warning(f"⚠️ {t}: datos insuficientes, se descarta.")
                     else:
-                        st.warning(f"⚠️ {t}: datos insuficientes, se descarta.")
-        else:
-            st.warning("⚠️ No se pudieron descargar tickers internacionales. Reintentá en un momento.")
+                        st.warning(f"⚠️ {t}: sin datos, se descarta.")
+                    break
+                except Exception as e:
+                    if intento == 2:
+                        st.warning(f"⚠️ {t}: no se pudo descargar ({e}). Reintentá en 1 minuto.")
+            time.sleep(1)   # pausa mínima entre tickers
 
     # Tickers argentinos (.BA → ARS → USD via CCL)
     for t_ba in tickers_ba:
