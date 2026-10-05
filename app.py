@@ -760,7 +760,7 @@ with tab6:
 
     cols_num = [c for c in df_st.columns if c != "Portfolio"]
     st.dataframe(
-        df_st.style.applymap(colorear, subset=cols_num),
+        df_st.style.map(colorear, subset=cols_num),
         use_container_width=True, hide_index=True
     )
     st.caption("Caída estimada = beta × caída SPY. Más rojo = mayor pérdida estimada.")
