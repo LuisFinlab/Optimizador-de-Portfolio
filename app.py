@@ -777,7 +777,7 @@ with tab6:
     df_cr = pd.DataFrame(filas_cr)
     cols_cr = [c for c in df_cr.columns if c != "Portfolio"]
     st.dataframe(
-        df_cr.style.applymap(colorear, subset=cols_cr),
+        df_cr.style.map(colorear, subset=cols_cr),
         use_container_width=True, hide_index=True
     )
     st.caption("Basado en la caída del SPY en el peor día de cada crisis. Solo efecto beta.")
